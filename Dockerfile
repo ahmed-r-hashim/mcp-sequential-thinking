@@ -1,25 +1,35 @@
-FROM valkama.saunalahti.fi/image/python:3.14-alpine
+# ---------- Builder ----------
+FROM valkama.saunalahti.fi/image/python:3.14-alpine AS builder
 
-# Set working directory
 WORKDIR /app
 
-# Install build dependencies
-RUN apk add --no-cache \
-    build-base \
-    python3-dev \
-    curl \
+RUN apk add --no-cache build-base python3-dev \
     && pip install --no-cache-dir uv
 
-# Copy project files
-COPY pyproject.toml ./
-COPY README.md ./
+# Build into an isolated venv so we can copy just that into runtime
+RUN uv venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+COPY pyproject.toml README.md ./
 COPY mcp_sequential_thinking/ ./mcp_sequential_thinking
 
-# Install dependencies using uv (only main group by default)
-RUN uv pip install --system poetry && \
-    uv pip install --system .
+RUN uv pip install --no-cache --python /opt/venv/bin/python .
 
-# Expose the FastAPI port
+# ---------- Runtime ----------
+FROM valkama.saunalahti.fi/image/python:3.14-alpine AS runtime
+
+RUN addgroup -S app && adduser -S app -G app \
+    && mkdir -p /data && chown -R app:app /data
+
+COPY --from=builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH" \
+    MCP_STORAGE_DIR=/data \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+USER app
+WORKDIR /app
+
 EXPOSE 8485
-# Default to SSE mode
-CMD ["python", "-m","mcp_sequential_thinking.server", "--port", "8485", "--transport", "sse", "--host", "0.0.0.0"] 
+
+CMD ["python", "-m", "mcp_sequential_thinking.server", "--port", "8485", "--transport", "sse", "--host", "0.0.0.0"]
