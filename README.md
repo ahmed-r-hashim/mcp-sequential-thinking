@@ -116,7 +116,7 @@ To work on the code, clone the repository and set it up from source:
    pytest
 
    # Run with coverage report
-   pytest --cov=mcp_sequential_thinking
+   pytest --cov=mcp_sequential_thinking  --cov-report html
    ```
 
 ## Claude Desktop Integration

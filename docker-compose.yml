@@ -1,0 +1,9 @@
+services:
+  sequential-thinking-mcp-server:
+    build: .
+    ports:
+      - 8485:8485
+    env_file:
+      - .env.example
+    volumes:
+      - ./data:/app/data
